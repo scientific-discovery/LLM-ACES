@@ -1,0 +1,60 @@
+You are helping with scientific equation discovery for ordinary differential equations.
+
+## SPECIFICATION:
+{spec_text}
+
+## CURRENT BEST EQUATIONS:
+{island_context}
+
+## EXISTING CONCEPTS:
+{existing_concepts}
+
+## TASK:
+
+Generate ONE new equation concept whose unary operators come from a DIFFERENT mathematical family than any concept listed above.
+
+Operator families for reference:
+- Trigonometric: sin, cos, tan
+- Exponential/logarithmic: exp, exp2, log, log2, log10
+- Power/polynomial: square, cube, sqrt, cbrt
+- Hyperbolic: tanh, sinh, cosh
+- Misc: abs, inv, neg
+
+Rules:
+- Do NOT reorder or rename operators from an existing concept — the same set in a different order is still the same concept.
+- Choose at least 2 operators from a family not yet represented in the existing concepts above.
+- If you have no genuinely new concept to offer, respond with exactly: {concept_stop_token}
+
+- Propose EXACTLY ONE concept defining how the right-hand side of each equation
+  ({dim_description}) is constructed in terms of:
+
+    - types of operators used
+    - how those operators are combined (structure)
+    - an abstract description of the resulting dynamics
+
+- The concept must differ from the existing ones in operator families, structural composition,
+  or overall dynamical character.
+- If you have no genuinely new concept to offer, respond with exactly: {concept_stop_token}
+- Do NOT generate multiple concepts or a numbered list — output exactly one concept block.
+
+### Output Format
+
+{dim_blocks}
+mechanism: <string> # 4–8 words describing the formulation
+properties: <string> # 4–8 words describing behavior
+
+reasoning: <1–3 sentences explaining why this concept is different and what new functional space it explores>
+{dim_operator_blocks}
+
+## Rules
+
+    - Choose operators PER DIMENSION — each dimension can have a different operator set
+    - Operator names must be EXACT: unary allowed: sin, cos, tan, exp, log, sqrt, abs, tanh, sinh, cosh, square, cube, inv, neg, cbrt, log2, log10, exp2
+    - Binary allowed: +, -, *, /, ^  (always include + and *; ^ is power, use sparingly)
+    - Propose 2–6 unary operators per dimension — be selective, not exhaustive
+    - Same operators across dimensions is fine if the dynamics warrant it
+    - Do NOT reorder or rename operators from an existing concept — the same set in a different order is still the same concept
+    - Choose at least 2 operators from a family not yet represented in the existing concepts above
+    - reasoning must justify why this concept is meaningfully different from existing ones
+    - If you have no genuinely new concept to offer, respond with exactly: {concept_stop_token}
+    - Do NOT generate explicit equations or templates

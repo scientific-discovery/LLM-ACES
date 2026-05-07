@@ -1,0 +1,99 @@
+"""
+Find the governing equation of a 1-dimensional AUTONOMOUS ODE system from observed trajectory data.
+Given observations of a single state variable x_0(t), discover the right-hand side function f such that:
+
+    dx_0/dt = f(x_0, params)
+
+IMPORTANT: This system is AUTONOMOUS — the right-hand side depends only on the state variable
+and parameters, NOT on time t explicitly. Do NOT use t in the equation body.
+The argument t is present in the signature only for compatibility.
+"""
+
+
+import numpy as np
+
+# Maximum number of free parameters available for optimization
+MAX_NPARAMS = 10
+params = [1.0] * MAX_NPARAMS
+
+
+@evaluate.run
+def evaluate(data: dict) -> float:
+    """Evaluate the discovered ODE right-hand side on observed trajectory data.
+
+    The data dict contains:
+        t  : time stamps, shape (n_time,)
+        u  : state variable observations, shape (n_time, 1)
+        du : true time derivatives, shape (n_time, 1)
+
+    Strategy:
+        1. Split 80/20 train/test — identical to MDBench OdeDataset.get_train/get_test.
+        2. Fit params on train split by minimizing MSE against du_true_train.
+        3. Compute NMSE on test split with optimised params and return negative NMSE.
+    """
+    t      = data['t']    # (n_time,)
+    u      = data['u']    # (n_time, 1)
+    du_true = data['du']  # (n_time, 1)  — analytically computed true derivatives
+
+    # 80/20 split matching MDBench OdeDataset
+    n_train = int(len(t) * 0.8)
+
+    x0_train  = u[:n_train, 0]
+    t_train   = t[:n_train]
+    dx0_train = du_true[:n_train, 0]   # used for param optimisation only
+
+    x0_test  = u[n_train:, 0]
+    t_test   = t[n_train:]
+    dx0_test = du_true[n_train:, 0]   # used for final NMSE only
+
+    from scipy.optimize import minimize
+
+    def loss(params):
+        try:
+            dx0_pred = equation(x0_train, t_train, params)
+            dx0_pred = np.asarray(dx0_pred, dtype=float)
+            if dx0_pred.shape != dx0_train.shape:
+                return 1e10
+            residuals = dx0_pred - dx0_train
+            if not np.all(np.isfinite(residuals)):
+                return 1e10
+            return np.mean(residuals ** 2)
+        except Exception:
+            return 1e10
+
+    result = minimize(
+        loss, [1.0] * MAX_NPARAMS, method='Nelder-Mead',
+        options={'maxiter': 10000, 'xatol': 1e-6, 'fatol': 1e-6, 'adaptive': True}
+    )
+
+    if not np.isfinite(result.fun) or result.fun > 1e8:
+        return None
+
+    # Final NMSE on held-out test split — mirrors MDBench evaluate_method.py
+    dx0_pred_test = np.asarray(equation(x0_test, t_test, result.x), dtype=float)
+    norm = np.sum(dx0_test ** 2) + 1e-10
+    nmse = np.sum((dx0_test - dx0_pred_test) ** 2) / norm
+
+    if not np.isfinite(nmse):
+        return None
+    return -nmse  # higher (less negative) is better
+
+
+@equation.evolve
+def equation(x0: np.ndarray, t: np.ndarray, params: np.ndarray) -> np.ndarray:
+    """ODE right-hand side for a 1-dimensional AUTONOMOUS system: dx_0/dt = f(x_0, params)
+
+    This system is autonomous: dx/dt depends only on the current state, not on time.
+    Do NOT use t in the equation body — it is provided only for signature compatibility.
+
+    Args:
+        x0    : numpy array of state variable x_0 observations, shape (n_time,)
+        t     : numpy array of time values — DO NOT USE, present for compatibility only
+        params: numpy array of numeric constants to be optimized, up to MAX_NPARAMS values
+
+    Returns:
+        dx0_dt: numpy array of dx_0/dt at each observation, shape (n_time,)
+    """
+    dx0_dt = params[0] * x0 + params[1]
+    
+    return dx0_dt

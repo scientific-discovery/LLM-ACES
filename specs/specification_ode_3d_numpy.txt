@@ -1,0 +1,116 @@
+"""
+Find the governing equations of a 3-dimensional AUTONOMOUS ODE system from observed trajectory data.
+Given observations of three state variables x_0(t), x_1(t), x_2(t), discover the right-hand side
+functions f, g, h such that:
+
+    dx_0/dt = f(x_0, x_1, x_2, params)
+    dx_1/dt = g(x_0, x_1, x_2, params)
+    dx_2/dt = h(x_0, x_1, x_2, params)
+
+IMPORTANT: This system is AUTONOMOUS — the right-hand side depends only on the state variables
+(x_0, x_1, x_2) and parameters, NOT on time t explicitly. Do NOT use t in the equation body.
+The argument t is present in the signature only for compatibility and must be ignored.
+"""
+
+
+import numpy as np
+
+# Maximum number of free parameters available for optimization
+MAX_NPARAMS = 15
+params = [1.0] * MAX_NPARAMS
+
+
+@evaluate.run
+def evaluate(data: dict) -> float:
+    """Evaluate the discovered ODE right-hand side on observed trajectory data.
+
+    The data dict contains:
+        t  : time stamps, shape (n_time,)
+        u  : state variable observations, shape (n_time, 3)
+        du : true time derivatives, shape (n_time, 3)
+
+    Strategy:
+        1. Split 80/20 train/test — identical to MDBench OdeDataset.get_train/get_test.
+        2. Fit params on train split by minimizing MSE against du_true_train.
+        3. Compute NMSE on test split with optimised params and return negative NMSE.
+    """
+    t       = data['t']    # (n_time,)
+    u       = data['u']    # (n_time, 3)
+    du_true = data['du']   # (n_time, 3)  — analytically computed true derivatives
+
+    # 80/20 split matching MDBench OdeDataset
+    n_train = int(len(t) * 0.8)
+
+    x0_train  = u[:n_train, 0]
+    x1_train  = u[:n_train, 1]
+    x2_train  = u[:n_train, 2]
+    t_train   = t[:n_train]
+    du_train  = du_true[:n_train]     # used for param optimisation only
+
+    x0_test  = u[n_train:, 0]
+    x1_test  = u[n_train:, 1]
+    x2_test  = u[n_train:, 2]
+    t_test   = t[n_train:]
+    du_test  = du_true[n_train:]      # used for final NMSE only
+
+    from scipy.optimize import minimize
+
+    def loss(params):
+        try:
+            dx0_pred, dx1_pred, dx2_pred = equation(x0_train, x1_train, x2_train, t_train, params)
+            du_pred = np.stack([
+                np.asarray(dx0_pred, dtype=float),
+                np.asarray(dx1_pred, dtype=float),
+                np.asarray(dx2_pred, dtype=float)
+            ], axis=1)
+            if du_pred.shape != du_train.shape:
+                return 1e10
+            residuals = du_pred - du_train
+            if not np.all(np.isfinite(residuals)):
+                return 1e10
+            return np.mean(residuals ** 2)
+        except Exception:
+            return 1e10
+
+    result = minimize(
+        loss, [1.0] * MAX_NPARAMS, method='Nelder-Mead',
+        options={'maxiter': 20000, 'xatol': 1e-6, 'fatol': 1e-6, 'adaptive': True}
+    )
+
+    if not np.isfinite(result.fun) or result.fun > 1e8:
+        return None
+
+    # Final NMSE on held-out test split — mirrors MDBench evaluate_method.py
+    dx0_pred_test, dx1_pred_test, dx2_pred_test = equation(x0_test, x1_test, x2_test, t_test, result.x)
+    du_pred_test = np.stack([
+        np.asarray(dx0_pred_test, dtype=float),
+        np.asarray(dx1_pred_test, dtype=float),
+        np.asarray(dx2_pred_test, dtype=float)
+    ], axis=1)
+    norm = np.sum(du_test ** 2) + 1e-10
+    nmse = np.sum((du_test - du_pred_test) ** 2) / norm
+
+    if not np.isfinite(nmse):
+        return None
+    return -nmse  # higher (less negative) is better
+
+
+@equation.evolve
+def equation(x0: np.ndarray, x1: np.ndarray, x2: np.ndarray, t: np.ndarray, params: np.ndarray) -> tuple:
+    """ODE right-hand side for a 3-dimensional AUTONOMOUS system.
+
+    Args:
+        x0    : numpy array of state variable x_0 observations, shape (n_time,)
+        x1    : numpy array of state variable x_1 observations, shape (n_time,)
+        x2    : numpy array of state variable x_2 observations, shape (n_time,)
+        t     : numpy array of time values — DO NOT USE, present for compatibility only
+        params: numpy array of numeric constants to be optimized
+
+    Returns:
+        (dx0_dt, dx1_dt, dx2_dt): tuple of numpy arrays, each shape (n_time,)
+    """
+    dx0_dt = params[0] * x1 + params[1] * x0 + params[2] * x2
+    dx1_dt = params[3] * x1 + params[4] * x0 + params[5] * x2
+    dx2_dt = params[6] * x1 + params[7] * x0 + params[8] * x2
+
+    return dx0_dt, dx1_dt, dx2_dt
