@@ -1,4 +1,4 @@
-name: aces
+name: llm-aces
 channels:
   - defaults
   - https://repo.anaconda.com/pkgs/main

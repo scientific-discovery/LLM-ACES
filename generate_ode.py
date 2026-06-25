@@ -3,8 +3,12 @@
 
 import re
 import argparse
+import sys
 from pathlib import Path
 from collections import namedtuple
+
+# strogatz_ode.py lives in scripts/ next to this file
+sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 
 import numpy as np
 import sympy as sp

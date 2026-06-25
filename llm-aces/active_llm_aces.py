@@ -9,34 +9,16 @@ import time
 from pathlib import Path
 from typing import Callable
 
-# ---------------------------------------------------------------------------
-# API credential placeholders (DO NOT put real keys here)
-# Auth is read from environment variables in `aces/concept_sampler.py`.
-# ---------------------------------------------------------------------------
+# Auth is read from environment variables — do not put real keys here.
 OPENAI_API_KEY = ""
 AZURE_OPENAI_API_KEY = ""
 AZURE_OPENAI_ENDPOINT = ""
 AZURE_OPENAI_DEPLOYMENT = ""
 
-
-# ---------------------------------------------------------------------------
-# Module path setup (so this script can be run from any working directory)
-# ---------------------------------------------------------------------------
-_HERE = Path(__file__).resolve().parent           # .../LLM-ACES
-_LLMACES_ROOT = _HERE.parent                     # .../LLM-ACES
-sys.path.insert(0, str(_HERE))                   # enables `import aces` (local package)
-sys.path.insert(0, str(_LLMACES_ROOT))           # enables `import active_aces`
-
-
-def _find_repo_root(start: Path) -> Path:
-    """Best-effort workspace root discovery for robust relative paths."""
-    for p in [start] + list(start.parents):
-        if (p / "llmaces").exists():
-            return p
-    return start
-
-
-_REPO_ROOT = _find_repo_root(_LLMACES_ROOT)
+_HERE = Path(__file__).resolve().parent
+_LLMACES_ROOT = _HERE.parent
+sys.path.insert(0, str(_HERE))
+sys.path.insert(0, str(_LLMACES_ROOT))
 
 
 def _resolve_user_path(raw: str | None) -> Path | None:
@@ -45,12 +27,10 @@ def _resolve_user_path(raw: str | None) -> Path | None:
     p = Path(raw)
     if p.is_absolute():
         return p
-    # Try relative to current working dir first, then repo root, then script dir.
-    for base in (Path.cwd(), _REPO_ROOT, _HERE):
+    for base in (Path.cwd(), _HERE):
         cand = (base / p).resolve()
         if cand.exists():
             return cand
-    # Fall back to cwd-resolution even if it doesn't exist (for a good error message).
     return (Path.cwd() / p).resolve()
 
 
@@ -104,7 +84,7 @@ from aces.concept_prompting import (
 )
 from aces.concept_sampler import ConceptLocalLLM
 
-import active_aces as active_lib  # noqa: E402
+import aces_utils as active_lib  # noqa: E402
 
 
 parser = argparse.ArgumentParser(
@@ -136,9 +116,7 @@ parser.add_argument("--fit_pause_seconds", type=float, default=5.0)
 parser.add_argument("--output_dir", type=str, default=None)
 
 
-# ---------------------------------------------------------------------------
 # Operator concept parsing
-# ---------------------------------------------------------------------------
 
 _VALID_UNARY = {
     "sin", "cos", "tan", "exp", "log", "sqrt", "abs",
@@ -213,9 +191,7 @@ def concept_key(op_concept: dict) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
 # LLM operator concept exploration
-# ---------------------------------------------------------------------------
 
 def _make_dim_replacements(dim: int) -> dict:
     dim_description = ", ".join(f"dx{d}/dt" for d in range(dim))
@@ -306,9 +282,7 @@ def explore_operator_concepts(
     return concepts
 
 
-# ---------------------------------------------------------------------------
 # PySR fitting per operator concept
-# ---------------------------------------------------------------------------
 
 def fit_pysr_concept(
     op_concept: dict,
@@ -321,12 +295,7 @@ def fit_pysr_concept(
     rng_seed: int,
     pysr_log: str,
 ) -> tuple[list[Callable], list[str]] | None:
-    """Fit one PySR model per state dimension using the given operator set.
-
-    Returns (callables, eq_strings) where callables are per-dim predict functions
-    and eq_strings are the best sympy equation strings per dimension.
-    Returns None if PySR is unavailable or fitting fails.
-    """
+    """Fit one PySR model per state dimension. Returns (callables, eq_strings) or None on failure."""
     try:
         from pysr import PySRRegressor
     except ImportError:
@@ -410,9 +379,7 @@ def _eval_eq(dim_fns: list[Callable], u: np.ndarray) -> np.ndarray:
     return np.stack([fn(u2d) for fn in dim_fns], axis=1)
 
 
-# ---------------------------------------------------------------------------
 # Acquisition wrapper for PySR equations
-# ---------------------------------------------------------------------------
 
 def compute_pysr_acquisition(
     pysr_eqs: list[Callable],
@@ -420,12 +387,7 @@ def compute_pysr_acquisition(
     n_steps: int = 10,
     dt: float = 0.1,
 ) -> np.ndarray:
-    """Score candidate ICs by pairwise trajectory NMSE over n_steps Euler steps.
-
-    Each equation is integrated forward from the candidate IC using forward Euler.
-    The score is the median pairwise NMSE between the resulting trajectories,
-    measuring how much the equations disagree over a short time horizon.
-    """
+    """Score candidate ICs by median pairwise NMSE across short forward-Euler trajectories."""
     M = len(candidate_u0s)
     scores = np.zeros(M)
 
@@ -471,9 +433,7 @@ def compute_pysr_acquisition(
     return scores
 
 
-# ---------------------------------------------------------------------------
 # Main loop
-# ---------------------------------------------------------------------------
 
 def _dim_val_nmse(entry_d: dict, val: dict, d: int) -> float:
     """Val NMSE for a single dimension's pool entry, evaluated independently."""
