@@ -1,8 +1,8 @@
-# LLM-ACES: Active Concept Evolution Search for ODE Discovery
+# LLM-ACES: Closed-Loop Discovery of Dynamical Systems with LLM-Guided Adaptive Search
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-Official implementation of **"LLM-ACES: Active Concept-Guided Symbolic Regression for ODE Discovery"**
+[![Arxiv](https://img.shields.io/badge/arxiv-red.svg)(https://arxiv.org/abs/2606.25039)
+Official implementation of **"LLM-ACES: Closed-Loop Discovery of Dynamical Systems with LLM-Guided Adaptive Search"**
 
 ---
 
