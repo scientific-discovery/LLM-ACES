@@ -163,11 +163,11 @@ Results are written to `logs/` (per-iteration JSONL) and `outputs/` (best equati
 ## 📚 Citation
 
 ```bibtex
-@inproceedings{llmaces2026,
-  title     = {LLM-ACES: Active Concept-Guided Symbolic Regression for ODE Discovery},
-  author    = {<Authors>},
-  booktitle = {<Conference>},
-  year      = {2026},
+@article{abhyankar2026llmaces,
+  title={LLM-ACES: Closed-Loop Discovery of Dynamical Systems with LLM-Guided Adaptive Search},
+  author={Abhyankar, Nikhil and Li, Sha and Kabra, Sanchit and Ramakrishnan, Naren and Gel, Yulia and Reddy, Chandan K},
+  journal={arXiv preprint arXiv:2606.25039},
+  year={2026}
 }
 ```
 
