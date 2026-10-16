@@ -164,7 +164,7 @@ Results are written to `logs/` (per-iteration JSONL) and `outputs/` (best equati
 
 ```bibtex
 @inproceedings{abhyankar2026llmaces,
-  title={{LLM}-{ACES}: Closed-Loop Discovery of Dynamic Systems with {LLM}-Guided Adaptive Search},
+  title={{LLM}-{ACES}: Closed-Loop Discovery of Dynamical Systems with {LLM}-Guided Adaptive Search},
   author={Abhyankar, Nikhil and Li, Sha and Kabra, Sanchit and Ramakrishnan, Naren and Gel, Yulia and Reddy, Chandan K},
   booktitle={The Fortieth Annual Conference on Neural Information Processing Systems (NeurIPS)},
   year={2026},
